@@ -5,7 +5,7 @@
 
 use super::*;
 use rusqlite::{Connection, Result};
-use std::{env, fs::remove_file};
+use std::{env, fs::remove_file, sync::mpsc::{self, Receiver}};
 
 // Structure to hold our command and also a sender to siginal when the result has come back
 pub struct DBcommand {
@@ -288,7 +288,7 @@ pub fn mem_db(rx: Receiver<DBcommand>) {
                 //
             } else if asked.cmd.starts_with("returnrealfromsql=") {
                 let cmd = asked.cmd.get(18..).unwrap();
-                let mut stmt = db.prepare(cmd).unwrap();
+                let mut stmt = db.prepare("SELECT version FROM 'version';").unwrap();
                 let answer: f64 = stmt.query_row([], |row| row.get(0) as Result<f64>).expect("No results?");
                 my_response = format!("{}", answer);
                 //
@@ -313,13 +313,15 @@ pub fn mem_db(rx: Receiver<DBcommand>) {
 //
 pub fn send_cmd(cmd: &str) -> String {
     let cmd = cmd.to_string();
+    println!("{}", cmd);
     unsafe {
         let (tx2, rx2) = mpsc::channel();
         let xx = DBcommand { tx: tx2, cmd };
         let tx = RESULT_SENDER.as_ref().unwrap().lock().unwrap().clone();
 
-        tx.send(xx).unwrap();
-        rx2.recv().unwrap()
+        dbg!(tx.send(xx).unwrap());
+
+        dbg!(rx2.recv().unwrap())
     }
 }
 
@@ -492,7 +494,7 @@ pub fn Get_new_file_name(filepath: String) -> String {
 
 /// Checks the version of the settings file saved to disk and updates the settings if there is a mismatch
 pub fn check_settings_version() {
-    let settings_version = send_cmd("returnrealfromsql=SELECT version FROM version;");
+    let settings_version = send_cmd("returnrealfromsql=SELECT version FROM 'version';");
 
     if SETTINGS_VERSION != settings_version {
         let tmp_path = env::temp_dir();
