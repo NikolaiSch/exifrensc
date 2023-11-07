@@ -1,7 +1,7 @@
 use crate::models;
 
 pub struct Database {
-    conn: rusqlite::Connection,
+    pub conn: rusqlite::Connection,
 }
 
 impl Database {
@@ -12,6 +12,11 @@ impl Database {
 
     pub fn new_development() -> Result<Database, rusqlite::Error> {
         let conn = rusqlite::Connection::open("development.db")?;
+        Ok(Database { conn })
+    }
+
+    pub fn new_settings() -> Result<Database, rusqlite::Error> {
+        let conn = rusqlite::Connection::open("settings.db")?;
         Ok(Database { conn })
     }
 
