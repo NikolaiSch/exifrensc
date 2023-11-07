@@ -1,3 +1,5 @@
+use crate::models::file::File;
+
 pub struct Actions {
     db: super::db::Database,
 }
@@ -39,4 +41,5 @@ impl Actions {
         self.db.execute(&command)
     }
 
+   
 }

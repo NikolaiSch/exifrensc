@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[derive(Clone, PartialEq)]
 pub struct Exif {
     pub path: String,
     pub tag: String,
@@ -46,15 +47,6 @@ impl fmt::Debug for Exif {
             "path: {}, tag: {}, tag_id: {}, value: {}",
             self.path, self.tag, self.tag_id, self.value
         )
-    }
-}
-
-impl PartialEq for Exif {
-    fn eq(&self, other: &Self) -> bool {
-        self.path == other.path
-            && self.tag == other.tag
-            && self.tag_id == other.tag_id
-            && self.value == other.value
     }
 }
 

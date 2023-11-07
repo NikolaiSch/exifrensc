@@ -1,3 +1,5 @@
+use crate::models;
+
 pub struct Database {
     conn: rusqlite::Connection,
 }
@@ -19,7 +21,7 @@ impl Database {
     }
 
     pub fn create_table(&self) -> Result<(), rusqlite::Error> {
-        Ok(self.execute(
+        Ok(self.conn.execute_batch(
             r#"
                DROP TABLE IF EXISTS files;
                CREATE TABLE files (
@@ -45,5 +47,274 @@ impl Database {
                 );
             "#,
         )?)
+    }
+
+    pub fn drop_table(&self) -> Result<(), rusqlite::Error> {
+        Ok(self.execute(
+            r#"
+                DROP TABLE IF EXISTS files;
+                DROP TABLE IF EXISTS exif;
+            "#,
+        )?)
+    }
+
+    pub fn insert_file(&self, file: &models::file::File) -> Result<(), rusqlite::Error> {
+        self.conn.execute(
+            r#"
+                INSERT INTO files (
+                    path,
+                    created,
+                    modified,
+                    orig_file_name,
+                    new_file_name,
+                    nksc_path,
+                    inNXstudio,
+                    tmp_lock,
+                    locked
+                ) VALUES (
+                    ?1,
+                    ?2,
+                    ?3,
+                    ?4,
+                    ?5,
+                    ?6,
+                    ?7,
+                    ?8,
+                    ?9
+                );
+            "#,
+            [
+                &file.path,
+                &file.created.to_string(),
+                &file.modified.to_string(),
+                &file.orig_file_name,
+                &file.new_file_name,
+                &file.nksc_path,
+                &file.in_nx_studio.to_string(),
+                &file.tmp_lock.to_string(),
+                &file.locked.to_string(),
+            ],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn insert_files(&self, files: &Vec<models::file::File>) -> Result<(), rusqlite::Error> {
+        let mut stmt = self.conn.prepare(
+            r#"
+                INSERT OR REPLACE INTO files (
+                    path,
+                    created,
+                    modified,
+                    orig_file_name,
+                    new_file_name,
+                    nksc_path,
+                    inNXstudio,
+                    tmp_lock,
+                    locked
+                ) VALUES (
+                    ?1,
+                    ?2,
+                    ?3,
+                    ?4,
+                    ?5,
+                    ?6,
+                    ?7,
+                    ?8,
+                    ?9
+                );
+            "#,
+        )?;
+
+        for file in files {
+            stmt.execute([
+                &file.path,
+                &file.created.to_string(),
+                &file.modified.to_string(),
+                &file.orig_file_name,
+                &file.new_file_name,
+                &file.nksc_path,
+                &file.in_nx_studio.to_string(),
+                &file.tmp_lock.to_string(),
+                &file.locked.to_string(),
+            ])?;
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_exif(&self, exif: &models::exif::Exif) -> Result<(), rusqlite::Error> {
+        self.conn.execute(
+            r#"
+                INSERT INTO exif (
+                    path,
+                    tag,
+                    tag_id,
+                    value
+                ) VALUES (
+                    ?1,
+                    ?2,
+                    ?3,
+                    ?4
+                );
+            "#,
+            [&exif.path, &exif.tag, &exif.tag_id.to_string(), &exif.value],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn insert_exifs(&self, exifs: &Vec<models::exif::Exif>) -> Result<(), rusqlite::Error> {
+        let mut stmt = self.conn.prepare(
+            r#"
+                INSERT OR REPLACE INTO exif (
+                    path,
+                    tag,
+                    tag_id,
+                    value
+                ) VALUES (
+                    ?1,
+                    ?2,
+                    ?3,
+                    ?4
+                );
+            "#,
+        )?;
+
+        for exif in exifs {
+            stmt.execute([&exif.path, &exif.tag, &exif.tag_id.to_string(), &exif.value])?;
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_database_new() {
+        Database::new().unwrap();
+    }
+
+    #[test]
+    fn test_database_new_development() {
+        Database::new_development().unwrap();
+
+        if std::fs::File::open("development.db").is_ok() {
+            std::fs::remove_file("development.db").unwrap();
+        }
+    }
+
+    #[test]
+    fn test_database_execute() {
+        let database = Database::new().unwrap();
+        let command = "CREATE TABLE test (id INTEGER PRIMARY KEY)";
+        database.execute(command).unwrap();
+    }
+
+    #[test]
+    fn test_database_create_table() {
+        let database = Database::new().unwrap();
+        database.create_table().unwrap();
+    }
+
+    #[test]
+    fn test_database_drop_table() {
+        let database = Database::new().unwrap();
+        database.drop_table().unwrap();
+    }
+
+    #[test]
+    fn test_database_insert_file() {
+        let database = Database::new().unwrap();
+        database.create_table().unwrap();
+        let file = models::file::File::default();
+        database.insert_file(&file).unwrap();
+
+        let mut stmt = database
+            .conn
+            .prepare("SELECT * FROM files WHERE path = ?1")
+            .unwrap();
+
+        let mut rows = stmt.query([&file.path]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let path: String = row.get(0).unwrap();
+            assert_eq!(path, file.path);
+        }
+
+        database.drop_table().unwrap();
+    }
+
+    #[test]
+    fn test_database_insert_files() {
+        let database = Database::new().unwrap();
+
+        database.create_table().unwrap();
+        let file = models::file::File::default();
+        let files = vec![file.clone()];
+        database.insert_files(&files).unwrap();
+
+        let mut stmt = database
+            .conn
+            .prepare("SELECT * FROM files WHERE path = ?1")
+            .unwrap();
+
+        let mut rows = stmt.query([&file.path]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let path: String = row.get(0).unwrap();
+            assert_eq!(path, file.path);
+        }
+
+        database.drop_table().unwrap();
+    }
+
+    #[test]
+    fn test_database_insert_exif() {
+        let database = Database::new().unwrap();
+        database.create_table().unwrap();
+        let exif = models::exif::Exif::default();
+        database.insert_exif(&exif).unwrap();
+
+        let mut stmt = database
+            .conn
+            .prepare("SELECT * FROM exif WHERE path = ?1")
+            .unwrap();
+
+        let mut rows = stmt.query([&exif.path]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let path: String = row.get(0).unwrap();
+            assert_eq!(path, exif.path);
+        }
+
+        database.drop_table().unwrap();
+    }
+
+    #[test]
+    fn test_database_insert_exifs() {
+        let database = Database::new().unwrap();
+
+        database.create_table().unwrap();
+        let exif = models::exif::Exif::default();
+        let exifs = vec![exif.clone()];
+        database.insert_exifs(&exifs).unwrap();
+
+        let mut stmt = database
+            .conn
+            .prepare("SELECT * FROM exif WHERE path = ?1")
+            .unwrap();
+
+        let mut rows = stmt.query([&exif.path]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let path: String = row.get(0).unwrap();
+            assert_eq!(path, exif.path);
+        }
+
+        database.drop_table().unwrap();
     }
 }
