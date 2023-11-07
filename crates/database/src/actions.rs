@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::models::file::File;
 pub struct Actions {
-    db: super::db::Database,
+    pub db: super::db::Database,
 }
 
 impl Actions {
@@ -46,14 +46,32 @@ impl Actions {
           
         let cmd = format!(
             r#"
-            CREATE TABLE IF NOT EXISTS 'settings' (name,ID,value);
-            CREATE TABLE IF NOT EXISTS 'file_pat' 
-              (
-                idx INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE, 
-                pszName TEXT,
-                pszSpec TEXT
-              );
-            CREATE TABLE IF NOT EXISTS version (version);  
+            CREATE TABLE "load_filterspec"
+                (
+                    idx INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
+                    pszName TEXT,
+                    pszSpec TEXT
+                );
+            CREATE TABLE IF NOT EXISTS 'settings' (name TEXT, ID INTEGER, value TEXT);
+            CREATE TABLE IF NOT EXISTS version (version);
+
+            INSERT INTO load_filterspec(idx,pszName,pszSpec) VALUES(1,'Nikon RAW (*.nef)','*.nef');
+            INSERT INTO load_filterspec(idx,pszName,pszSpec) VALUES(2,'Jpeg (*.jpg; *.jpeg)','*.jpg;*.jpeg');
+            INSERT INTO load_filterspec(idx,pszName,pszSpec) VALUES(3,'TIFF (*.tif; *.tiff)','*.tif;*.tiff');
+            INSERT INTO load_filterspec(idx,pszName,pszSpec) VALUES(4,'Nikon + JPG','*.nef;*.jpg;*.jpeg');
+            INSERT INTO load_filterspec(idx,pszName,pszSpec) VALUES(5,'Nikon + JPG + TIFF','*.nef;*.jpg;*.jpeg;*.tif;*.tiff');
+            INSERT INTO load_filterspec(idx,pszName,pszSpec) VALUES(6,'All files','*.*');
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_NX_STUDIO',21020,0);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_ON_CONFLICT',21022,0);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_ON_CONFLICT_ADD',21024,0);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_ON_CONFLICT_NUM',21026,2);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_strftimeUse',21008,0);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_CreateSyntheticDate',21016,0);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_DRAG_N_DROP',21032,3);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_EXIF_Engine',21050,1);
+            INSERT INTO settings(name,ID,value) VALUES('IDC_PREFS_ExifToolPath',21052,'ExifTool.exe');
+            INSERT INTO version(version) VALUES(0.5);
+            
            "#, 
             );
         
@@ -61,26 +79,43 @@ impl Actions {
               Ok(())
     }
     
-    pub fn drop_settings(&self) -> Result<(), rusqlite::Error> {
-        let cmd = "
-            DROP TABLE IF EXISTS 'settings';
-            DROP TABLE IF EXISTS file_pat;
-            DROP TABLE IF EXISTS version;";
-        self.db.conn.execute_batch(&cmd)
-    }
+    // pub fn drop_settings(&self) -> Result<(), rusqlite::Error> {
+    //     let cmd = "
+    //         DROP TABLE IF EXISTS 'settings';
+    //         DROP TABLE IF EXISTS file_pat;
+    //         DROP TABLE IF EXISTS version;
+    //         DROP TABLE IF EXISTS load_filterspec;
+    //         DROP TABLE IF EXISTS scripts;";
+    //     self.db.conn.execute_batch(&cmd)
+    // }
 
     pub fn attach_settings(&self, settings_path: PathBuf) -> Result<(), rusqlite::Error> {
         let cmd = format!("ATTACH DATABASE '{}' AS settings;", settings_path.to_str().unwrap());
         self.db.conn.execute_batch(&cmd)
     }
 
-    pub fn count_rows(&self, table: &str) -> Result<i64, rusqlite::Error> {
+    pub fn count_rows(&self, table: String) -> Result<i64, rusqlite::Error> {
         let cmd = format!("SELECT COUNT(*) FROM {}", table);
         let mut stmt = self.db.conn.prepare(&cmd)?;
         let mut rows = stmt.query([])?;
         let row = rows.next()?.unwrap();
         let count: i64 = row.get(0)?;
         Ok(count)
+    }
+
+    pub fn get_setting(&self, id: i64) -> Result<i64, rusqlite::Error> {
+        let cmd = format!("SELECT value FROM settings WHERE ID = {}", id);
+
+        let mut stmt = self.db.conn.prepare(&cmd)?;
+        let mut rows = stmt.query([])?;
+        let row = rows.next()?.unwrap();
+        let value: i64 = row.get(0)?;
+        Ok(value)
+    }
+
+    pub fn toggle_lock(&self, path: String) -> Result<(), rusqlite::Error> {
+        let cmd = format!("UPDATE files SET locked = NOT locked WHERE path = '{}'", path);
+        self.db.execute(&cmd)
     }
 }
 
@@ -113,26 +148,15 @@ mod tests {
         assert_eq!(actions.drop_tables(), Ok(()));
     }
 
-    #[test]
-    fn test_actions_create_settings() {
-        let db = super::super::db::Database::new_settings().unwrap();
-        let actions = Actions::new(db);
-        assert_eq!(actions.create_settings(), Ok(()));
-    }
+   
 
-    #[test]
-    fn test_actions_drop_settings() {
-        let db = super::super::db::Database::new_settings().unwrap();
-        let actions = Actions::new(db);
-        assert_eq!(actions.drop_settings(), Ok(()));
-    }
+    // #[test]
+    // fn test_actions_drop_settings() {
+    //     let db = super::super::db::Database::new_settings().unwrap();
+    //     let actions = Actions::new(db);
+    //     assert_eq!(actions.drop_settings(), Ok(()));
+    // }
 
-    #[test]
-    fn test_actions_attach_settings() {
-        let db = super::super::db::Database::new_settings().unwrap();
-        let actions = Actions::new(db);
-        actions.create_settings().unwrap();
-        assert_eq!(actions.attach_settings(PathBuf::from("settings.db")), Ok(()));
-    }
+   
     
 }

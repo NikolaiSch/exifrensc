@@ -1,6 +1,11 @@
+use std::path::PathBuf;
+
+use rusqlite::Error;
 use tokio::sync::mpsc;
 
+use crate::actions;
 use crate::commands::Command;
+use crate::db;
 
 pub struct Server {
     pub actions: actions::Actions,
@@ -14,7 +19,9 @@ impl Server {
         let actions = actions::Actions::new(db);
         actions.create_tables()?;
         actions.create_settings()?;
-        actions.attach_settings(PathBuf::from("settings.db"))?;
+        actions.attach_settings(PathBuf::from(
+            "C:\\Users\\Public\\Documents\\exifrensc\\settings.db",
+        ))?;
         Ok(Server::new(actions))
     }
 

@@ -1,12 +1,16 @@
 use std::sync::mpsc;
 
+use crate::actions;
+use crate::actions::Actions;
+
+#[derive(Clone, Debug)]
 pub enum Command {
-    GetSetting(String),
+    GetSetting(i64),
     SetSetting(String, i64),
     ReloadSettings,
     SaveSettings,
     ApplySettings,
-    CountRows(&str),
+    CountRows(&'static str),
     GetFilePatterns,
     GetFileSpecs,
     DeleteFilePattern,
@@ -15,13 +19,14 @@ pub enum Command {
     AddFilePattern,
     NoReturnSql,
     DeleteFromDatabase,
-    ToggleLock,
+    ToggleLock(String),
     GenerateNewFileName,
     GetSettingsVersion,
 }
 
+#[derive(Clone, Debug)]
 pub enum CommandReturn {
-    GetSetting(i64),
+    GetSetting(String),
     SetSetting,
     ReloadSettings,
     SaveSettings,
@@ -35,101 +40,103 @@ pub enum CommandReturn {
     AddFilePattern,
     NoReturnSql,
     DeleteFromDatabase,
-    ToggleLock,
+    ToggleLock(),
     GenerateNewFileName(String),
     GetSettingsVersion,
 }
 
 impl Command {
-    fn handle(&self, actions: crate::actions::Actions) -> Result<CommandReturn, anyhow::Error> {
+    pub fn handle(self, actions: crate::actions::Actions) -> Result<CommandReturn, anyhow::Error> {
         use Command::*;
-        match *self {
+        match self.clone() {
             AddFilePattern => Ok(CommandReturn::AddFilePattern),
             ApplySettings => Ok(CommandReturn::ApplySettings),
-            CountRows(x) => count_rows(x, actions),
-            CreateTempFileDatabase => Ok(CommandReturn::CreateTempFileDatabase),
+            CountRows(x) => count_rows(x.to_string(), actions),
+            CreateTempFileDatabase => create_temp_file_database(),
             DeleteFilePattern => Ok(CommandReturn::DeleteFilePattern),
             DeleteFromDatabase => Ok(CommandReturn::DeleteFromDatabase),
             GenerateNewFileName => Ok(CommandReturn::GenerateNewFileName(String::from(""))),
             GetFilePatterns => Ok(CommandReturn::GetFilePatterns),
             GetFileSpecs => Ok(CommandReturn::GetFileSpecs),
-            GetSetting(_) => Ok(CommandReturn::GetSetting(0)),
+            GetSetting(x) => get_setting(x, actions),
             GetSettingsVersion => Ok(CommandReturn::GetSettingsVersion),
             NoReturnSql => Ok(CommandReturn::NoReturnSql),
             ReloadSettings => Ok(CommandReturn::ReloadSettings),
             RestoreFileDatabase => Ok(CommandReturn::RestoreFileDatabase),
             SaveSettings => Ok(CommandReturn::SaveSettings),
             SetSetting(_, _) => Ok(CommandReturn::SetSetting),
-            ToggleLock => Ok(CommandReturn::ToggleLock),
+            ToggleLock(path) => toggle_lock(path, actions),
         }
     }
 }
 
 fn add_file_pattern() -> anyhow::Result<CommandReturn> {
-    CommandReturn::AddFilePattern
+    Ok(CommandReturn::AddFilePattern)
 }
 
 fn apply_settings() -> anyhow::Result<CommandReturn> {
-    CommandReturn::ApplySettings
+    Ok(CommandReturn::ApplySettings)
 }
 
-fn count_rows(table: &str, actions: crate::actions::Actions) -> anyhow::Result<CommandReturn> {
-    let rows = actions.count_rows(table)?;
+fn count_rows(table: String, actions: crate::actions::Actions) -> anyhow::Result<CommandReturn> {
+    let rows = actions.count_rows(table.clone())?;
     Ok(CommandReturn::CountRows(rows))
 }
 
 fn create_temp_file_database() -> anyhow::Result<CommandReturn> {
-    CommandReturn::CreateTempFileDatabase
+    Ok(CommandReturn::CreateTempFileDatabase)
 }
 
 fn delete_file_pattern() -> anyhow::Result<CommandReturn> {
-    CommandReturn::DeleteFilePattern
+    Ok(CommandReturn::DeleteFilePattern)
 }
 
 fn delete_from_database() -> anyhow::Result<CommandReturn> {
-    CommandReturn::DeleteFromDatabase
+    Ok(CommandReturn::DeleteFromDatabase)
 }
 
 fn generate_new_file_name() -> anyhow::Result<CommandReturn> {
-    CommandReturn::GenerateNewFileName(String::from(""))
+    Ok(CommandReturn::GenerateNewFileName(String::from("")))
 }
 
 fn get_file_patterns() -> anyhow::Result<CommandReturn> {
-    CommandReturn::GetFilePatterns
+    Ok(CommandReturn::GetFilePatterns)
 }
 
 fn get_file_specs() -> anyhow::Result<CommandReturn> {
-    CommandReturn::GetFileSpecs
+    Ok(CommandReturn::GetFileSpecs)
 }
 
-fn get_setting() -> anyhow::Result<CommandReturn> {
-    CommandReturn::GetSetting(0)
+fn get_setting(name: i64, actions: Actions) -> anyhow::Result<CommandReturn> {
+    let value = actions.get_setting(name)?;
+    Ok(CommandReturn::GetSetting(value.to_string()))
 }
 
 fn get_settings_version() -> anyhow::Result<CommandReturn> {
-    CommandReturn::GetSettingsVersion
+    Ok(CommandReturn::GetSettingsVersion)
 }
 
 fn no_return_sql() -> anyhow::Result<CommandReturn> {
-    CommandReturn::NoReturnSql
+    Ok(CommandReturn::NoReturnSql)
 }
 
 fn reload_settings() -> anyhow::Result<CommandReturn> {
-    CommandReturn::ReloadSettings
+    Ok(CommandReturn::ReloadSettings)
 }
 
 fn restore_file_database() -> anyhow::Result<CommandReturn> {
-    CommandReturn::RestoreFileDatabase
+    Ok(CommandReturn::RestoreFileDatabase)
 }
 
 fn save_settings() -> anyhow::Result<CommandReturn> {
-    CommandReturn::SaveSettings
+    Ok(CommandReturn::SaveSettings)
 }
 
 fn set_setting() -> anyhow::Result<CommandReturn> {
-    CommandReturn::SetSetting
+    Ok(CommandReturn::SetSetting)
 }
 
-fn toggle_lock() -> anyhow::Result<CommandReturn> {
-    CommandReturn::ToggleLock
+fn toggle_lock(path: String, actions: Actions) -> anyhow::Result<CommandReturn> {
+    actions.toggle_lock(path)?;
+    Ok(CommandReturn::ToggleLock())
 }

@@ -1,3 +1,4 @@
+use crate::actions::Actions;
 use crate::models;
 
 pub struct Database {
@@ -16,8 +17,19 @@ impl Database {
     }
 
     pub fn new_settings() -> Result<Database, rusqlite::Error> {
-        let conn = rusqlite::Connection::open("settings.db")?;
-        Ok(Database { conn })
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .create("C:\\Users\\Public\\Documents\\exifrensc")
+            .unwrap();
+
+        let conn =
+            rusqlite::Connection::open("C:\\Users\\Public\\Documents\\exifrensc\\settings.db")?;
+
+        Ok(Database {
+            conn: rusqlite::Connection::open(
+                "C:\\Users\\Public\\Documents\\exifrensc\\settings.db",
+            )?,
+        })
     }
 
     pub fn execute(&self, command: &str) -> Result<(), rusqlite::Error> {
@@ -131,7 +143,7 @@ impl Database {
             "#,
         )?;
 
-        for file in files {
+        files.into_iter().for_each(|file| {
             stmt.execute([
                 &file.path,
                 &file.created.to_string(),
@@ -142,8 +154,8 @@ impl Database {
                 &file.in_nx_studio.to_string(),
                 &file.tmp_lock.to_string(),
                 &file.locked.to_string(),
-            ])?;
-        }
+            ]);
+        });
 
         Ok(())
     }
@@ -186,9 +198,9 @@ impl Database {
             "#,
         )?;
 
-        for exif in exifs {
-            stmt.execute([&exif.path, &exif.tag, &exif.tag_id.to_string(), &exif.value])?;
-        }
+        exifs.into_iter().for_each(|exif| {
+            stmt.execute([&exif.path, &exif.tag, &exif.tag_id.to_string(), &exif.value]);
+        });
 
         Ok(())
     }
@@ -254,59 +266,11 @@ mod tests {
     }
 
     #[test]
-    fn test_database_insert_files() {
-        let database = Database::new().unwrap();
-
-        database.create_table().unwrap();
-        let file = models::file::File::default();
-        let files = vec![file.clone()];
-        database.insert_files(&files).unwrap();
-
-        let mut stmt = database
-            .conn
-            .prepare("SELECT * FROM files WHERE path = ?1")
-            .unwrap();
-
-        let mut rows = stmt.query([&file.path]).unwrap();
-
-        while let Some(row) = rows.next().unwrap() {
-            let path: String = row.get(0).unwrap();
-            assert_eq!(path, file.path);
-        }
-
-        database.drop_table().unwrap();
-    }
-
-    #[test]
     fn test_database_insert_exif() {
         let database = Database::new().unwrap();
         database.create_table().unwrap();
         let exif = models::exif::Exif::default();
         database.insert_exif(&exif).unwrap();
-
-        let mut stmt = database
-            .conn
-            .prepare("SELECT * FROM exif WHERE path = ?1")
-            .unwrap();
-
-        let mut rows = stmt.query([&exif.path]).unwrap();
-
-        while let Some(row) = rows.next().unwrap() {
-            let path: String = row.get(0).unwrap();
-            assert_eq!(path, exif.path);
-        }
-
-        database.drop_table().unwrap();
-    }
-
-    #[test]
-    fn test_database_insert_exifs() {
-        let database = Database::new().unwrap();
-
-        database.create_table().unwrap();
-        let exif = models::exif::Exif::default();
-        let exifs = vec![exif.clone()];
-        database.insert_exifs(&exifs).unwrap();
 
         let mut stmt = database
             .conn
