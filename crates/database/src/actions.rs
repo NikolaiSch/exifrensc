@@ -117,6 +117,15 @@ impl Actions {
         let cmd = format!("UPDATE files SET locked = NOT locked WHERE path = '{}'", path);
         self.db.execute(&cmd)
     }
+
+    pub fn get_settings_version(&self) -> Result<String, rusqlite::Error> {
+        let cmd = "SELECT version FROM version";
+        let mut stmt = self.db.conn.prepare(&cmd)?;
+        let mut rows = stmt.query([])?;
+        let row = rows.next()?.unwrap();
+        let version: String = row.get(0)?;
+        Ok(version)
+    }
 }
 
 #[cfg(test)]

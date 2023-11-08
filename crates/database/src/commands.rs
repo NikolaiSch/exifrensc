@@ -42,7 +42,7 @@ pub enum CommandReturn {
     DeleteFromDatabase,
     ToggleLock(),
     GenerateNewFileName(String),
-    GetSettingsVersion,
+    GetSettingsVersion(String),
 }
 
 impl Command {
@@ -59,7 +59,7 @@ impl Command {
             GetFilePatterns => Ok(CommandReturn::GetFilePatterns),
             GetFileSpecs => Ok(CommandReturn::GetFileSpecs),
             GetSetting(x) => get_setting(x, actions),
-            GetSettingsVersion => Ok(CommandReturn::GetSettingsVersion),
+            GetSettingsVersion => get_settings_version(actions),
             NoReturnSql => Ok(CommandReturn::NoReturnSql),
             ReloadSettings => Ok(CommandReturn::ReloadSettings),
             RestoreFileDatabase => Ok(CommandReturn::RestoreFileDatabase),
@@ -112,8 +112,9 @@ fn get_setting(name: i64, actions: Actions) -> anyhow::Result<CommandReturn> {
     Ok(CommandReturn::GetSetting(value.to_string()))
 }
 
-fn get_settings_version() -> anyhow::Result<CommandReturn> {
-    Ok(CommandReturn::GetSettingsVersion)
+fn get_settings_version(actions: Actions) -> anyhow::Result<CommandReturn> {
+    let version = actions.get_settings_version()?;
+    Ok(CommandReturn::GetSettingsVersion(version))
 }
 
 fn no_return_sql() -> anyhow::Result<CommandReturn> {
