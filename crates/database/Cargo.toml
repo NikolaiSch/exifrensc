@@ -8,10 +8,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
-rusqlite = {version = "*", features = ["bundled"]}
 tokio = { version = "1", features = ["full"] }
+sea-orm = { version = "^0.12.0", features = [ "sqlx-sqlite", "runtime-tokio-rustls", "macros" ] }
 
 
-[[test]]
-name = "count_rows"
-harness = false
+
+
+
