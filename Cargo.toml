@@ -1,4 +1,3 @@
-workspace = { members = ["crates/database"] }
 [package]
 name = "exifrensc"
 version = "0.5.20230603"
@@ -6,6 +5,10 @@ authors = ["Andrew Roach <afr69email-Github@yahoo.com>"]
 edition = "2021"
 description = "Program to rename image files using EXIF data and to also synch that with nikon side car files."
 license = "GPL-2.0-or-later"
+
+
+[workspace]
+members = ["crates/*", "crates/database/migration", "crates/database/entity"] 
 
 [dependencies.windows]
 version = "0.48.0"
